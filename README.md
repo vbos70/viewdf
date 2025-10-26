@@ -67,6 +67,7 @@ python viewdf.py data.csv --slice 5        # 6th row (0-based)
 python viewdf.py data.csv --slice 1:4      # rows 1-3
 python viewdf.py data.csv --slice ::2      # every second row
 python viewdf.py data.csv --slice=-5:      # last 5 rows (note '=')
+python viewdf.py data.csv --slice -5       # every row up to the 5th from the end
 python viewdf.py data.csv --slice 1:10:2   # every second row from 1-9
 
 # Control output format
