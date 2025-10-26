@@ -1,0 +1,32 @@
+# AI configuration for this repository
+# This file is intentionally lightweight and illustrative. Adjust keys/names to
+# match your infra (service code, deployment tooling or feature-flag system).
+
+version: 1
+
+models:
+  claude_sonnet_3_5:
+    enabled: true        # set to false to disable for all clients
+    scope: all_clients   # possible values: all_clients, internal_only, beta_group
+    rollout: immediate   # immediate | gradual | scheduled
+    rollout_config:      # optional details for gradual/scheduled rollouts
+      percent: 100
+      schedule: null
+
+# Environment variable alternative (if infra reads env vars instead of file):
+# ENABLE_CLAUDE_SONNET_3_5=true
+
+# Usage notes:
+# - Service code should load this file during startup and honor `models.*.enabled`.
+# - For gradual rollouts, consult `rollout_config` and implement percentage-based
+#   traffic routing in the service layer or a feature-flag system.
+# - When CI deploys, it should validate this file (schema) and/or gate changes
+#   behind a review if toggling critical model settings.
+
+# Example GitHub Actions snippet to expose as env for workflows (for reference):
+# jobs:
+#   deploy:
+#     steps:
+#       - name: Set CLAUDE env
+#         run: echo "ENABLE_CLAUDE_SONNET_3_5=true" >> $GITHUB_ENV
+
