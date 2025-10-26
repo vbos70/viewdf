@@ -127,15 +127,17 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.slice is not None:
         # Parse slice notation (start:stop:step)
         try:
+            start, stop, step = None, None, None
             parts = [int(p) if p else None for p in args.slice.split(":")]
             if len(parts) == 1:
-                sl = slice(parts[0])
+                stop = parts[0]
             elif len(parts) == 2:
-                sl = slice(parts[0], parts[1])
+                start, stop = parts[:2]
             elif len(parts) == 3:
-                sl = slice(parts[0], parts[1], parts[2])
+                start, stop, step = parts
             else:
                 raise ValueError("Slice must be in format start:stop:step")
+            sl = slice(start, stop, step)
             result = df.iloc[sl]
             if not isinstance(result, pd.DataFrame):  # Single row
                 result = result.to_frame().transpose()

@@ -145,3 +145,34 @@ def test_pickle_writing(tmp_path, capsys):
     out_err = capsys.readouterr()
     assert rc == 4  # pickle write error code
     assert "Failed to save pickle" in out_err.err
+
+
+def test_slice_notation(tmp_path, capsys):
+    """Test DataFrame slicing with Python slice notation."""
+    # Create a CSV with 10 rows
+    rows = "\n".join(f"val{i},letter{i}" for i in range(10))
+    p = tmp_path / "data.csv"
+    p.write_text(f"num,letter\n{rows}")
+
+    # Test various slice notations
+    tests =([
+        ("5", "4   val4  letter4"),     # single index
+        ("0:2", "0   val0  letter0"),   # start:stop (should see rows 0 and 1)
+        ("0:2", "1   val1  letter1")]   # start:stop (should see rows 0 and 1)
+        + [("::2", f"{c}   val{c}  letter{c}") for c in [0,2,4,6,8]]   # every second row (should see row 0)
+        + [("7::", f"{c}   val{c}  letter{c}") for c in [7,8,9]]   # last three rows (should see row 7)
+        + [("1:6:2", f"{c}   val{c}  letter{c}") for c in [1,3,5]]   # starting from row 1, every second row (should see row 0)
+    )
+
+    for slice_arg, expected in tests:
+        rc = main([str(p), "--slice", slice_arg])
+        out_err = capsys.readouterr()
+        assert rc == 0
+        out_lines = [" ".join(l.split()) for l in out_err.out.splitlines()]
+        assert " ".join(expected.split()) in out_lines  # Test one row from expected output
+
+    # Test invalid slice
+    rc = main([str(p), "--slice", "1:2:3:4"])
+    out_err = capsys.readouterr()
+    assert rc == 5
+    assert "Invalid slice" in out_err.err
