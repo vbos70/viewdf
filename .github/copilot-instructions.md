@@ -1,50 +1,63 @@
 ## Copilot / AI agent instructions for this repository
 
-Status: repository appears to be empty in the current workspace — no source files or project manifests (package.json, pyproject.toml, go.mod, README.md, Dockerfile, Makefile) were found. If this is incorrect, please commit or mount the project files and re-run the agent.
+A Python utility (`viewdf.py`) to inspect tabular data files (CSV/TSV) using pandas, with a focus on quick column inspection and statistical summaries.
 
-Goal for the agent
-- Quickly discover the project's language, build, test, and run commands.
-- Make small, well-scoped code changes only after confirming the target files and build/test commands.
+Project structure
+- `viewdf.py` - Main CLI utility
+- `tests/` - Pytest test suite
+  - `test_viewdf.py` - Core functionality tests
+  - `conftest.py` - Test fixtures and debug helpers
 
 Quick contract
-- Input: repository files available at the workspace root.
-- Output: small, tested edits (1-3 files) with accompanying tests or verification steps when possible.
-- Error modes: missing build/test commands or missing source files — in that case ask the repo maintainer before changing behavior.
+- Input: CSV/TSV files to inspect.
+- Output: Column stats, head/tail previews, shape info.
+- Typical usage: `python viewdf.py data.csv --describe [COLUMN]`
 
-Action checklist (what to run first)
-1. Inventory common files (stop after you find any of these):
-   - `package.json`, `pnpm-lock.yaml`, `yarn.lock` (Node)
-   - `pyproject.toml`, `requirements.txt`, `setup.cfg` (Python)
-   - `go.mod`, `Makefile`, `cmd/` (Go)
-   - `README.md`, `.github/workflows/**` (CI hints)
-2. If you find a manifest, extract build/test/run commands (e.g., `scripts` in `package.json`, `tool.poetry.scripts` or `tox.ini`/`pytest` for Python, `go test ./...`).
-3. If the repo is empty or files are missing, stop and prompt the human with the minimal questions below.
+Development environment
+- Python venv under `.venv/`
+- Core dependencies: pandas, pytest
+- Run tests: `/home/vbos/projects/viewdf/.venv/bin/python -m pytest -q`
 
-Minimal questions to ask when files are missing or ambiguous
-- What is the main language / runtime for this repo?
-- How do I build and run the project locally? (example commands)
-- How do I run tests? Provide a fast smoke test command if available.
-- Which files are safe to modify for small changes (feature, bugfix, tests)?
+Common commands (path prefix omitted for brevity)
+```bash
+# View file stats
+viewdf.py data.csv --describe    # whole file stats
+viewdf.py data.csv --describe age  # single column
+viewdf.py data.csv --head 10    # preview rows
+viewdf.py data.csv --columns    # list columns
+viewdf.py data.csv --shape      # dimensions
 
-Project-specific patterns to prefer (how to infer when present)
-- Node: prefer editing code under `src/` or `lib/`; use `npm test`/`pnpm test` if `package.json` has `scripts`.
-- Python: prefer `src/` package layout; run `pytest -q` when `pyproject.toml` or `tests/` exists.
-- Go: prefer changes in `cmd/` or packages under `internal/` or `pkg/`; run `go test ./...`.
-- CI: consult `.github/workflows` for the actual commands used in CI to mirror developer flows.
+# Development
+pytest -q                       # quick test run
+pytest -v                       # verbose test output
+```
+
+Project-specific patterns
+- CLI follows standard argparse patterns with explicit arguments.
+- Tests use `tmp_path` fixture for isolation.
+- Failed tests preserve temp files in `debug_temps/` for inspection.
 
 Examples to include in PRs or commits
-- Short commit message describing intent and scope (one line). Example: `fix(api): return 400 on missing param`
-- Include a one-line test or verification: `Ran: npm test --silent` or `Ran: pytest tests/test_foo.py -q` (adjust per project).
+- Short commit message describing intent and scope. Example: `feat(cli): add --sample N flag for random rows`
+- Always include test coverage. Example:
+  ```python
+  def test_new_feature(tmp_path):
+      p = tmp_path / "data.csv"
+      p.write_text("a,b\n1,2\n3,4\n")
+      rc = main([str(p), "--new-flag"])
+      assert rc == 0
+  ```
+
+Testing notes
+- Tests automatically preserve temp files on failure under `debug_temps/{testname}-{timestamp}/`.
+- Large-file tests use 10k rows × 50 cols with deterministic data.
+- Use `capsys` fixture to inspect stdout/stderr.
 
 When to ask before changing code
-- No build or test commands are discoverable.
-- The change touches many files (>3) or modifies public APIs.
-
-Notes for maintainers
-- If you want richer, project-specific guidance for AI agents, add a `README.md` or update this file with:
-  - canonical build/test/run commands
-  - source layout (where to find services, web UI, CLI entrypoints)
-  - any nonstandard patterns (generated code, custom codegen steps, private registries)
+- No test coverage for a new feature.
+- Changes to DataFrame output format.
+- New pandas dependencies.
+- Performance changes that could affect large files.
 
 Edit history
-- Generated by an automated assistant on an empty workspace scan. Update this file when the repository content is available.
+- Updated by an automated assistant based on current repository state including Python CLI, test suite, and development conventions.
