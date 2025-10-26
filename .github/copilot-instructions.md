@@ -9,9 +9,10 @@ Project structure
   - `conftest.py` - Test fixtures and debug helpers
 
 Quick contract
-- Input: CSV/TSV files to inspect.
+- Input: CSV/TSV files or pickled pandas DataFrames to inspect.
 - Output: Column stats, head/tail previews, shape info.
 - Typical usage: `python viewdf.py data.csv --describe [COLUMN]`
+- Can convert between formats: `python viewdf.py data.csv --to-pickle data.pkl`
 
 Development environment
 - Python venv under `.venv/`
@@ -20,12 +21,13 @@ Development environment
 
 Common commands (path prefix omitted for brevity)
 ```bash
-# View file stats
+# View file stats (works for both CSV and pickle)
 viewdf.py data.csv --describe    # whole file stats
-viewdf.py data.csv --describe age  # single column
+viewdf.py data.pkl --describe age  # single column from pickle
 viewdf.py data.csv --head 10    # preview rows
 viewdf.py data.csv --columns    # list columns
 viewdf.py data.csv --shape      # dimensions
+viewdf.py data.csv --to-pickle data.pkl  # save as pickle
 
 # Development
 pytest -q                       # quick test run

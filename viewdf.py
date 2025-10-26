@@ -34,18 +34,25 @@ import pandas as pd
 
 
 def load_dataframe(path: str, sep: Optional[str]) -> pd.DataFrame:
-    """Load a dataframe from a CSV/TSV file.
+    """Load a dataframe from a CSV/TSV/pickle file.
 
-    If path ends with .csv/.tsv it's parsed accordingly. `sep` overrides detection.
+    If path ends with .csv/.tsv it's parsed as delimited text.
+    If path ends with .pkl it's loaded as a pickled pandas DataFrame.
+    The `sep` parameter overrides delimiter detection for CSV/TSV files.
     """
-    if sep is None:
-        # try to infer from extension
-        if path.endswith(".tsv") or path.endswith(".txt"):
-            sep = "\t"
-        else:
-            sep = ","
     try:
-        df = pd.read_csv(path, sep=sep)
+        if path.endswith(".pkl"):
+            df = pd.read_pickle(path)
+            if not isinstance(df, pd.DataFrame):
+                raise RuntimeError(f"Pickle contains {type(df).__name__}, not a DataFrame")
+        else:
+            if sep is None:
+                # try to infer from extension for text files
+                if path.endswith(".tsv") or path.endswith(".txt"):
+                    sep = "\t"
+                else:
+                    sep = ","
+            df = pd.read_csv(path, sep=sep)
     except Exception as exc:
         raise RuntimeError(f"Failed to read {path!r}: {exc}")
     return df
@@ -58,8 +65,8 @@ def print_df(df: pd.DataFrame, max_rows: int = 200) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Quickly inspect a CSV/TSV file using pandas")
-    p.add_argument("path", help="Path to CSV/TSV file")
+    p = argparse.ArgumentParser(description="Quickly inspect a CSV/TSV/pickle file using pandas")
+    p.add_argument("path", help="Path to CSV/TSV file or pickled DataFrame (.pkl)")
     p.add_argument("--sep", help="Field separator (overrides detection)")
     p.add_argument("--head", type=int, nargs="?", const=5, help="Show first N rows (default 5)")
     p.add_argument("--tail", type=int, help="Show last N rows")
@@ -74,6 +81,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--shape", action="store_true", help="Show dataframe shape")
     p.add_argument("--sample", type=int, help="Show a random sample of N rows")
     p.add_argument("--max_rows", type=int, default=200, help="Max rows to print when showing DataFrame")
+    p.add_argument("--to-pickle", help="Save DataFrame to a pickle file at the given path")
     return p
 
 
@@ -98,9 +106,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         # DataFrame.info prints to stdout by default
         df.info()
     if args.describe is not False:
-        # args.describe == True -> show describe for entire DataFrame
+        # args.describe == True or None -> show describe for entire DataFrame
         # args.describe == <str> -> describe only that column
-        if args.describe is True:
+        if args.describe is True or args.describe is None:
             print(df.describe(include="all"))
         else:
             col = args.describe
@@ -120,6 +128,14 @@ def main(argv: Optional[list[str]] = None) -> int:
     if not (args.columns or args.shape or args.info or args.describe or args.head is not None or args.tail is not None or args.sample is not None):
         print_df(df.head(5), max_rows=args.max_rows)
 
+    # Save to pickle if requested
+    if args.to_pickle:
+        try:
+            df.to_pickle(args.to_pickle)
+        except Exception as exc:
+            print(f"Failed to save pickle to {args.to_pickle!r}: {exc}", file=sys.stderr)
+            return 4
+    
     return 0
 
 
