@@ -1,6 +1,6 @@
 # viewdf
 
-A lightweight CLI utility to quickly inspect tabular data files (CSV/TSV) or pickled pandas DataFrames.
+A lightweight CLI utility to quickly inspect tabular data files (CSV/TSV) or pickled pandas DataFrames using pandas.
 
 ## Features
 
@@ -8,7 +8,11 @@ A lightweight CLI utility to quickly inspect tabular data files (CSV/TSV) or pic
 - Load and inspect pickled pandas DataFrames
 - Show basic stats with `--describe` (whole file or single column)
 - Preview data with `--head`/`--tail`/`--sample`
+- Advanced row selection using Python slice notation
 - Convert between formats (CSV ↔ pickle)
+- Memory-efficient handling of large files
+- Automatic file format detection (.csv, .tsv, .pkl)
+- Customizable output formatting
 
 ## Installation
 
@@ -62,20 +66,29 @@ python viewdf.py data.csv --sample 100
 python viewdf.py data.csv --slice 5        # 6th row (0-based)
 python viewdf.py data.csv --slice 1:4      # rows 1-3
 python viewdf.py data.csv --slice ::2      # every second row
-python viewdf.py data.csv --slice -5:      # last 5 rows
+python viewdf.py data.csv --slice=-5:      # last 5 rows (note '=')
 python viewdf.py data.csv --slice 1:10:2   # every second row from 1-9
+
+# Control output format
+python viewdf.py data.csv --max_rows 50    # limit output to 50 rows
 ```
 
 Working with different formats:
 ```bash
-# Tab-separated files
-python viewdf.py data.tsv --sep $'\t'
+# Tab-separated files (auto-detected from .tsv extension)
+python viewdf.py data.tsv
+
+# Explicitly specify separator
+python viewdf.py data.txt --sep $'\t'
+python viewdf.py data.dat --sep ","
 
 # Load pickled DataFrame
 python viewdf.py data.pkl --describe
+python viewdf.py data.pkl --head 10
 
-# Convert CSV to pickle
-python viewdf.py data.csv --to-pickle data.pkl
+# Convert between formats
+python viewdf.py data.csv --to-pickle data.pkl    # CSV to pickle
+python viewdf.py data.tsv --to-pickle data.pkl    # TSV to pickle
 ```
 
 ## Development
@@ -87,11 +100,24 @@ python -m pytest -q
 
 # Verbose output
 python -m pytest -v
+
+# Run specific test
+python -m pytest tests/test_viewdf.py::test_describe_column -v
 ```
 
 Test output preservation:
 - Failed tests automatically preserve temp files under `debug_temps/{testname}-{timestamp}/`
 - Useful for debugging data handling issues
+- Large file tests use deterministic data (10k rows × 50 cols)
+- Use `capsys` fixture to verify output in tests
+
+### Contributing
+
+When submitting changes:
+1. Add test coverage for new features
+2. Update docstrings and README.md
+3. Verify large file handling if relevant
+4. Run the full test suite
 
 ## Exit codes
 

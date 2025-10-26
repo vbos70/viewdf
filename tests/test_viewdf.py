@@ -161,11 +161,12 @@ def test_slice_notation(tmp_path, capsys):
         ("0:2", "1   val1  letter1")]   # start:stop (should see rows 0 and 1)
         + [("::2", f"{c}   val{c}  letter{c}") for c in [0,2,4,6,8]]   # every second row (should see row 0)
         + [("7::", f"{c}   val{c}  letter{c}") for c in [7,8,9]]   # last three rows (should see row 7)
+        + [("-3::", f"{c}   val{c}  letter{c}") for c in [7,8,9]]   # last three rows (should see row 7)
         + [("1:6:2", f"{c}   val{c}  letter{c}") for c in [1,3,5]]   # starting from row 1, every second row (should see row 0)
     )
 
     for slice_arg, expected in tests:
-        rc = main([str(p), "--slice", slice_arg])
+        rc = main([str(p), f"--slice={slice_arg}"])
         out_err = capsys.readouterr()
         assert rc == 0
         out_lines = [" ".join(l.split()) for l in out_err.out.splitlines()]

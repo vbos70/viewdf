@@ -2,26 +2,51 @@
 """
 viewdf.py
 
-Small CLI utility to quickly inspect tabular files (CSV/TSV) using pandas.
-
-Assumptions made:
-- The workspace did not include a file to create; you asked to create `viewdf.py` so I implemented a sensible default tool.
-- This script is intentionally small and dependency-light (requires `pandas`).
+Small CLI utility to quickly inspect tabular files (CSV/TSV/pickle) using pandas.
+Supports viewing data frames, basic statistics, and format conversion.
 
 Usage examples:
-  /home/vbos/projects/viewdf/.venv/bin/python viewdf.py data.csv --head 10
-  /home/vbos/projects/viewdf/.venv/bin/python viewdf.py data.tsv --sep '\t' --describe
+  # Basic data viewing
+  viewdf.py data.csv                    # show first 5 rows (default)
+  viewdf.py data.csv --head 10          # show first 10 rows
+  viewdf.py data.csv --tail 3           # show last 3 rows
+  viewdf.py data.csv --sample 5         # show 5 random rows
+  viewdf.py data.csv --slice "1:10:2"   # show rows 1,3,5,7,9 (Python slice notation)
+  
+  # Structure inspection
+  viewdf.py data.csv --columns          # list column names
+  viewdf.py data.csv --shape            # show dimensions (rows × cols)
+  viewdf.py data.csv --info             # show DataFrame.info()
+  
+  # Statistics
+  viewdf.py data.csv --describe         # describe all columns
+  viewdf.py data.csv --describe age     # describe single column
+  
+  # Format conversion
+  viewdf.py data.csv --to-pickle data.pkl     # save as pickle
+  viewdf.py data.tsv --sep '\t' --head 10     # read TSV with explicit separator
+  viewdf.py data.pkl --describe               # read from pickle
 
 Options:
-  --head N       : print first N rows (default: 5)
-  --tail N       : print last N rows
-  --describe     : print pandas describe()
-  --info         : print DataFrame.info()
-  --columns      : list column names
-  --shape        : print (rows, cols)
-  --sample N     : print a random sample of N rows
-  --max_rows N   : max rows to display when printing DataFrame (pandas.option_context)
+  path              : Path to CSV/TSV file or pickled DataFrame (.pkl)
+  --sep SEP         : Field separator (overrides auto-detection)
+  --head N          : Show first N rows (default: 5)
+  --tail N          : Show last N rows
+  --sample N        : Show N random rows
+  --slice SLICE     : Show rows using Python slice notation (start:stop:step)
+  --describe [COL]  : Show statistics for all or one column
+  --info            : Show DataFrame metadata (types, memory)
+  --columns         : List column names only
+  --shape           : Show dimensions as (rows, cols)
+  --max_rows N      : Limit output to N rows (default: 200)
+  --to-pickle PATH  : Save DataFrame as pickle file
 
+Exit codes:
+  0: Success
+  2: Failed to read input file
+  3: Column not found
+  4: Failed to save pickle
+  5: Invalid slice notation
 """
 
 from __future__ import annotations
@@ -65,7 +90,8 @@ def print_df(df: pd.DataFrame, max_rows: int = 200) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Quickly inspect a CSV/TSV/pickle file using pandas")
+    p = argparse.ArgumentParser(description="Quickly inspect a CSV/TSV/pickle file using pandas", 
+                           allow_abbrev=False)  # Prevent -1 being interpreted as --info
     p.add_argument("path", help="Path to CSV/TSV file or pickled DataFrame (.pkl)")
     p.add_argument("--sep", help="Field separator (overrides detection)")
     p.add_argument("--head", type=int, nargs="?", const=5, help="Show first N rows (default 5)")
@@ -80,7 +106,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--columns", action="store_true", help="List column names")
     p.add_argument("--shape", action="store_true", help="Show dataframe shape")
     p.add_argument("--sample", type=int, help="Show a random sample of N rows")
-    p.add_argument("--slice", help="Show DataFrame rows using Python slice notation (start:stop:step)")
+    # Handle slice with negative indices by using a custom type function
+    p.add_argument("--slice", type=str, 
+                  help="Show DataFrame rows using Python slice notation (start:stop:step). Supports negative indices.",
+                  metavar="SLICE")
     p.add_argument("--max_rows", type=int, default=200, help="Max rows to print when showing DataFrame")
     p.add_argument("--to-pickle", help="Save DataFrame to a pickle file at the given path")
     return p
@@ -125,19 +154,36 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.sample is not None:
         print_df(df.sample(n=args.sample), max_rows=args.max_rows)
     if args.slice is not None:
-        # Parse slice notation (start:stop:step)
+        # Parse slice notation (start:stop:step) with support for negative indices
         try:
-            start, stop, step = None, None, None
-            parts = [int(p) if p else None for p in args.slice.split(":")]
-            if len(parts) == 1:
-                stop = parts[0]
-            elif len(parts) == 2:
-                start, stop = parts[:2]
-            elif len(parts) == 3:
-                start, stop, step = parts
-            else:
+            # Ensure negative values and proper slice syntax
+            if not all(c in "-0123456789:" for c in args.slice):
+                raise ValueError("Slice must contain only digits, minus signs, and colons")
+            
+            # Split on colons and parse each part, handling empty parts as None
+            parts = args.slice.split(":")
+            if len(parts) > 3:
                 raise ValueError("Slice must be in format start:stop:step")
-            sl = slice(start, stop, step)
+                
+            # Convert each part to int or None, preserving negative values
+            slice_parts = []
+            for p in parts:
+                if not p:  # Empty part becomes None
+                    slice_parts.append(None)
+                else:
+                    try:
+                        slice_parts.append(int(p))
+                    except ValueError:
+                        raise ValueError(f"Invalid slice value: {p}")
+            
+            # Create slice object based on number of parts
+            if len(slice_parts) == 1:
+                sl = slice(slice_parts[0])
+            elif len(slice_parts) == 2:
+                sl = slice(slice_parts[0], slice_parts[1])
+            else:  # len == 3
+                sl = slice(slice_parts[0], slice_parts[1], slice_parts[2])
+                
             result = df.iloc[sl]
             if not isinstance(result, pd.DataFrame):  # Single row
                 result = result.to_frame().transpose()
