@@ -57,6 +57,13 @@ python viewdf.py data.csv --tail 5
 
 # Random sample
 python viewdf.py data.csv --sample 100
+
+# View specific rows using Python slice notation
+python viewdf.py data.csv --slice 5        # 6th row (0-based)
+python viewdf.py data.csv --slice 1:4      # rows 1-3
+python viewdf.py data.csv --slice ::2      # every second row
+python viewdf.py data.csv --slice -5:      # last 5 rows
+python viewdf.py data.csv --slice 1:10:2   # every second row from 1-9
 ```
 
 Working with different formats:
@@ -92,6 +99,7 @@ Test output preservation:
 - 2: File read error (missing file, corrupt pickle, etc.)
 - 3: Invalid column name
 - 4: Pickle write error
+- 5: Invalid slice notation
 
 ## License
 

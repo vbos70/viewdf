@@ -80,6 +80,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--columns", action="store_true", help="List column names")
     p.add_argument("--shape", action="store_true", help="Show dataframe shape")
     p.add_argument("--sample", type=int, help="Show a random sample of N rows")
+    p.add_argument("--slice", help="Show DataFrame rows using Python slice notation (start:stop:step)")
     p.add_argument("--max_rows", type=int, default=200, help="Max rows to print when showing DataFrame")
     p.add_argument("--to-pickle", help="Save DataFrame to a pickle file at the given path")
     return p
@@ -123,9 +124,33 @@ def main(argv: Optional[list[str]] = None) -> int:
         print_df(df.tail(args.tail), max_rows=args.max_rows)
     if args.sample is not None:
         print_df(df.sample(n=args.sample), max_rows=args.max_rows)
+    if args.slice is not None:
+        # Parse slice notation (start:stop:step)
+        try:
+            parts = [int(p) if p else None for p in args.slice.split(":")]
+            if len(parts) == 1:
+                sl = slice(parts[0])
+            elif len(parts) == 2:
+                sl = slice(parts[0], parts[1])
+            elif len(parts) == 3:
+                sl = slice(parts[0], parts[1], parts[2])
+            else:
+                raise ValueError("Slice must be in format start:stop:step")
+            result = df.iloc[sl]
+            if not isinstance(result, pd.DataFrame):  # Single row
+                result = result.to_frame().transpose()
+            with pd.option_context('display.max_rows', args.max_rows):
+                print(result.to_string(index=True))
+            return 0
+        except Exception as exc:
+            print(f"Invalid slice {args.slice!r}: {exc}", file=sys.stderr)
+            return 5
 
     # If no action flags provided, default to head
-    if not (args.columns or args.shape or args.info or args.describe or args.head is not None or args.tail is not None or args.sample is not None):
+    if not (args.columns or args.shape or args.info or args.describe or 
+            args.head is not None or args.tail is not None or 
+            args.sample is not None or args.slice is not None or
+            args.to_pickle):
         print_df(df.head(5), max_rows=args.max_rows)
 
     # Save to pickle if requested
